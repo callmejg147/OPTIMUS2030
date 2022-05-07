@@ -1,0 +1,54 @@
+/*************************************************************
+
+  This sketch shows how to read values from Virtual Pins
+
+  App project setup:
+    Slider widget (0...100) on Virtual Pin V1
+ *************************************************************/
+
+// Template ID, Device Name and Auth Token are provided by the Blynk.Cloud
+// See the Device Info tab, or Template settings
+#define BLYNK_TEMPLATE_ID           "TMPLulesoilU"
+#define BLYNK_DEVICE_NAME           "Harvestor"
+#define BLYNK_AUTH_TOKEN            "kvhIb1NS58Wpn_vvDtUbw_91lGhsFEz4"
+
+
+// Comment this out to disable prints and save space
+#define BLYNK_PRINT Serial
+
+
+#include <WiFi.h>
+#include <WiFiClient.h>
+#include <BlynkSimpleEsp32.h>
+
+char auth[] = BLYNK_AUTH_TOKEN;
+
+// Your WiFi credentials.
+// Set password to "" for open networks.
+char ssid[] = "Wifihome 2";
+char pass[] = "asianet@143";
+
+// This function will be called every time Slider Widget
+// in Blynk app writes values to the Virtual Pin V1
+BLYNK_WRITE(V1)
+{
+  int pinValue = param.asInt(); // assigning incoming value from pin V1 to a variable
+
+  // process received value
+}
+
+void setup()
+{
+  // Debug console
+  Serial.begin(115200);
+
+  Blynk.begin(auth, ssid, pass);
+  // You can also specify server:
+  //Blynk.begin(auth, ssid, pass, "blynk.cloud", 80);
+  //Blynk.begin(auth, ssid, pass, IPAddress(192,168,1,100), 8080);
+}
+
+void loop()
+{
+  Blynk.run();
+}
