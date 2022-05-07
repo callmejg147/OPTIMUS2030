@@ -20,6 +20,16 @@
 #include <WiFi.h>
 #include <WiFiClient.h>
 #include <BlynkSimpleEsp32.h>
+#include <DallasTemperature.h>
+#include <Wire.h>
+
+#define tempWire 4    // Temperature sensor
+#define relay 2       // Relay pin
+#define vRef 3.3      // ESP32 reference voltage
+#define adcRes 4096.0 // ESP32 ADC resolution
+#define OLED_RESET -1
+#define SCREEN_WIDTH 128 //lED pixels
+#define SCREEN_HEIGHT 64 //led pixels
 
 char auth[] = BLYNK_AUTH_TOKEN;
 
@@ -27,6 +37,12 @@ char auth[] = BLYNK_AUTH_TOKEN;
 // Set password to "" for open networks.
 char ssid[] = "Wifihome 2";
 char pass[] = "asianet@143";
+
+//variable declarartion 
+float voltsEC,voltsTurbi,voltsDO;
+float temp= 25;
+float ec = 0, tds = 0, ecCalib = 1.1500,ntu = 0;
+int tempTrig = 0, tempEmail = 0,dataLog = 0;
 
 // This function will be called every time Slider Widget
 // in Blynk app writes values to the Virtual Pin V1
@@ -36,6 +52,79 @@ BLYNK_WRITE(V1)
 
   // process received value
 }
+//Function to check Temperature
+void getTemp() {
+  tempSen.requestTemperatures();
+  temp = tempSen.getTempCByIndex(0);
+  if (temp > 40) {
+    tempTrig = 1;
+    if (tempEmail == 0) {
+      tempEmail = 1;
+      Blynk.email("Temperature Alert", String("Recorded Temperature: ") + temp + String("°C"));//alert via email
+    }
+    digitalWrite(relay, LOW);
+  }
+  else {
+    tempTrig = 0;
+    tempEmail = 0;
+    digitalWrite(relay, HIGH);
+  }
+  Blynk.virtualWrite(V0, temp);
+}
+
+//Fuction to convert temperature to voltage
+void getTdsEc() {               
+  float tempCoeff = 1.0 + 0.02 * (temp - 25.0);
+  float v = (voltsEC / tempCoeff) * ecCal;                     
+  tds = (133.42 * pow(v, 3) - 255.86 * pow(v, 2) + 857.39 * v) * 0.5; //formulla for conversion to tds value
+  ec = 2 * tds;
+  // Sensor Values to Blynk application
+  Blynk.virtualWrite(V1, ec);
+}
+
+//Function to check for turbidity
+void getTurbidity() {
+  if (voltsTurbi < 1.6913) {
+    ntu = 3000;
+  }
+  else if (voltsTurbi < 2.7720) {
+    ntu = -2572.2 * pow(voltsTurbi, 2) + 8700.5 * voltsTurbi - 4352.9;
+  }
+  else {
+    ntu = 0;
+  }
+  Serial.println(voltsTurbi, 4);
+  Blynk.virtualWrite(V2, ntu);
+}
+
+void displayUpdate() {
+  display.setTextSize(2);
+  display.setTextColor(WHITE);
+  display.setCursor(0, 0);
+  display.clearDisplay();
+  display.println("T  : " + String(temp) + (char)247 + "C");
+  display.setCursor(0, 10);
+  display.println("EC : " + String(ec) + "uS/cm");
+  display.setCursor(0, 30);
+  display.println("Tur: " + String(voltsTurbi) + "V");
+  display.display();
+}
+
+
+void allNotif() {
+  String notimsg = "";
+  if (tempTrig == 1) {
+    if (tempTrig == 1) {
+      notimsg += " Temperature (" + String(temp) + "°C) ";
+    }
+    Serial.println(notimsg);
+    Blynk.notify(String("Abnormal Readings On:") + notimsg);
+  }
+  else {
+        //skip this
+  }
+}
+
 
 void setup()
 {
@@ -46,9 +135,17 @@ void setup()
   // You can also specify server:
   //Blynk.begin(auth, ssid, pass, "blynk.cloud", 80);
   //Blynk.begin(auth, ssid, pass, IPAddress(192,168,1,100), 8080);
+  
+  display.clearDisplay();
+  timer.setInterval(5100L, getTemp);
+  timer.setInterval(5200L, getTdsEc);
+  timer.setInterval(5300L, getTurbidity);
+  timer.setInterval(5600L, displayUpdate);
+  timer.setInterval(120000L, allNotif);
 }
 
 void loop()
 {
   Blynk.run();
+  timer.run();
 }
